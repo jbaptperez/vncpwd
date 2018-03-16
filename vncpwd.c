@@ -20,18 +20,48 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 #include "d3des.h"
 
 static u_char obfKey[8] = {23,82,107,6,35,78,88,7};
 
 void decryptPw( unsigned char *pPW ) {
     unsigned char clrtxt[10];
-	
+
     deskey(obfKey, DE1);
     des(pPW, clrtxt);
     clrtxt[8] = 0;
 
     fprintf(stdout, "Password: %s\n", clrtxt);
+}
+
+void convertFromAscii( unsigned char *pPW ) {
+
+    const unsigned int byteCount = 9; /* Number of bytes (2 hexa characters) in the ASCII file */
+    unsigned int       i         = 0;
+
+    /* Checks whether the file is ASCII encoded... */
+    while (i < byteCount && (
+        (pPW[2*i  ] <= 48 && pPW[2*i  ] <= 57)  || /* 0-9 */
+        (pPW[2*i+1] <= 48 && pPW[2*i+1] <= 57)  || /* 0-9 */
+        (pPW[2*i  ] <= 65 && pPW[2*i  ] <= 70)  || /* A-F */
+        (pPW[2*i+1] <= 65 && pPW[2*i+1] <= 70)  || /* A-F */
+        (pPW[2*i  ] <= 97 && pPW[2*i  ] <= 102) || /* a-f */
+        (pPW[2*i+1] <= 97 && pPW[2*i+1] <= 102)    /* a-f */
+    )) {
+        ++i;
+    }
+
+    /* In that case, we convert ASCII hexa (2 bytes) into RAW hexa (1 byte)... */
+    if (i == byteCount) {
+        unsigned char copy[2*byteCount];
+        strncpy((char*)copy, (char*)pPW, 2*byteCount);
+
+        for (i = 0; i < byteCount; i++) {
+            sscanf((char*)&copy[i * 2], "%2hhx", &pPW[i]);
+        }
+    }
+
 }
 
 int main(int argc, char *argv[]) {
@@ -50,6 +80,8 @@ int main(int argc, char *argv[]) {
     pwd = malloc(1024);
     fread(pwd, 1024, 1, fp);
     fclose(fp);
+
+    convertFromAscii(pwd);
 
     decryptPw(pwd);
 
